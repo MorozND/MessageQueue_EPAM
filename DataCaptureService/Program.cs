@@ -1,11 +1,12 @@
 ﻿using DataCaptureService.Services;
-using Microsoft.Extensions.Configuration;
+using SharedAssembly;
 using SharedAssembly.Models;
 using SharedAssembly.RabbitMQ;
 
 Console.WriteLine("DataCaptureService started");
 
-var config = GetConfiguration("appsettings.json");
+var configBuilder = new LocalConfigurationBuilder();
+var config = configBuilder.BuildJson("appsettings.json");
 
 var dataPath = config["dataPath"];
 var fileExtention = config["fileExtension"];
@@ -45,13 +46,4 @@ while (true)
     }
 
     Thread.Sleep(iterationPause);
-}
-
-IConfiguration GetConfiguration(string fileName)
-{
-    var configuration = new ConfigurationBuilder()
-        .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-        .AddJsonFile(fileName);
-
-    return configuration.Build();
 }
