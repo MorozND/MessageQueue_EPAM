@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SharedAssembly.RabbitMQ
 {
-    public static class RabbitMQConsts
+    public static class RabbitMQConfig
     {
         public static readonly Uri DefaultUri = new Uri("amqp://guest:guest@localhost:5672");
         public static readonly string DataCaptureExchange = "DataCaptureExchange";

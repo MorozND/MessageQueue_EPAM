@@ -1,11 +1,11 @@
 ﻿
 using SharedAssembly.RabbitMQ;
 
-using var rabbitMqService = new RabbitMQService(RabbitMQConsts.DefaultUri);
+using var rabbitMqService = new RabbitMQService(RabbitMQConfig.DefaultUri);
 rabbitMqService.SetupExchangeAndQueue(
-    RabbitMQConsts.DataCaptureExchange,
-    RabbitMQConsts.DataCaptureQueue,
-    RabbitMQConsts.DataCaptureRoutingKey
+    RabbitMQConfig.DataCaptureExchange,
+    RabbitMQConfig.DataCaptureQueue,
+    RabbitMQConfig.DataCaptureRoutingKey
 );
 
 Console.WriteLine("Init completed");
