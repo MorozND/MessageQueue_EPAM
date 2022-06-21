@@ -1,6 +1,6 @@
-﻿
-using DataCaptureService.Services;
+﻿using DataCaptureService.Services;
 using Microsoft.Extensions.Configuration;
+using SharedAssembly.Models;
 using SharedAssembly.RabbitMQ;
 
 Console.WriteLine("DataCaptureService started");
@@ -8,12 +8,16 @@ Console.WriteLine("DataCaptureService started");
 var config = GetConfiguration("appsettings.json");
 
 var dataPath = config["dataPath"];
-var fileExtention = Environment.GetCommandLineArgs().FirstOrDefault() ?? "jpg";
+var fileExtention = config["fileExtension"];
 
-Console.WriteLine($"Target data folder: {dataPath}");
 Console.WriteLine($"Looking for {fileExtention} files...");
+Console.WriteLine($"Target data folder: {dataPath}");
 
-using var rabbitMqService = new RabbitMQService(RabbitMQConfig.DefaultUri);
+var rabbitMqSetupModel = new RabbitMqSetupModel(
+    RabbitMQConfig.DefaultUri, RabbitMQConfig.DataCaptureExchange,
+    RabbitMQConfig.DataCaptureQueue, RabbitMQConfig.DataCaptureRoutingKey
+);
+using var rabbitMqService = new RabbitMQService(rabbitMqSetupModel);
 var fileService = new FileService(dataPath);
 var iterationPause = TimeSpan.FromSeconds(int.Parse(config["iterationPauseInSeconds"]));
 
@@ -25,7 +29,8 @@ while (true)
     {
         foreach (var file in files)
         {
-            throw new NotImplementedException();
+            var fileContent = await File.ReadAllBytesAsync(file);
+            rabbitMqService.PublishMessage(fileContent);
         }
     }
 

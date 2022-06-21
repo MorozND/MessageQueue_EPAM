@@ -1,39 +1,49 @@
 ﻿using RabbitMQ.Client;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using SharedAssembly.Models;
 
 namespace SharedAssembly.RabbitMQ
 {
     public class RabbitMQService : IDisposable
     {
         private readonly IConnection _connection;
+        private readonly IModel _channel;
 
-        public RabbitMQService(Uri connectionUri)
+        private readonly string _exchangeName;
+        private readonly string _queueName;
+        private readonly string _routingKey;
+
+        public RabbitMQService(RabbitMqSetupModel setupModel)
         {
             var factory = new ConnectionFactory();
-            factory.Uri = connectionUri;
+            factory.Uri = setupModel.Uri;
 
             _connection = factory.CreateConnection();
+            _channel = _connection.CreateModel();
+
+            _exchangeName = setupModel.ExchangeName;
+            _queueName = setupModel.QueueName;
+            _routingKey = setupModel.RoutingKey;
         }
 
-        public void SetupExchangeAndQueue(string exchangeName, string queueName, string routingKey)
+        public void Setup()
         {
-            var channel = _connection.CreateModel();
+            _channel.ExchangeDeclare(_exchangeName, ExchangeType.Direct);
+            _channel.QueueDeclare(_queueName, false, false, false, null);
+            _channel.QueueBind(_queueName, _exchangeName, _routingKey, null);
+        }
 
-            channel.ExchangeDeclare(exchangeName, ExchangeType.Direct);
-            channel.QueueDeclare(queueName, false, false, false, null);
-            channel.QueueBind(queueName, exchangeName, routingKey, null);
+        public void PublishMessage(byte[] content)
+        {
+            if (content is null || !content.Any())
+                throw new ArgumentException("Invalid content");
 
-            channel.Close();
+            _channel.BasicPublish(_exchangeName, _routingKey, null, content);
         }
 
         public void Dispose()
         {
+            _channel.Close();
             _connection.Close();
-            _connection.Dispose();
         }
     }
 }
