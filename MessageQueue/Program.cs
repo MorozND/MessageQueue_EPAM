@@ -6,8 +6,8 @@ var configBuilder = new LocalConfigurationBuilder();
 var config = configBuilder.BuildJson("appsettings.json");
 
 var rabbitMqSetupModel = new RabbitMqSetupModel(
-    RabbitMQConfig.DefaultUri, RabbitMQConfig.DataCaptureExchange,
-    RabbitMQConfig.DataCaptureQueue, RabbitMQConfig.DataCaptureRoutingKey
+    RabbitMqConfig.DefaultUri, RabbitMqConfig.DataCaptureExchange,
+    RabbitMqConfig.DataCaptureQueue, RabbitMqConfig.DataCaptureRoutingKey
 );
 var resultFileInfo = new ResultFileInfo(
     config["dataPath"],

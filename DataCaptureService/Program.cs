@@ -14,8 +14,8 @@ var fileExtention = config["fileExtension"];
 Console.WriteLine($"Target data folder: {dataPath}");
 
 var rabbitMqSetupModel = new RabbitMqSetupModel(
-    RabbitMQConfig.DefaultUri, RabbitMQConfig.DataCaptureExchange,
-    RabbitMQConfig.DataCaptureQueue, RabbitMQConfig.DataCaptureRoutingKey
+    RabbitMqConfig.DefaultUri, RabbitMqConfig.DataCaptureExchange,
+    RabbitMqConfig.DataCaptureQueue, RabbitMqConfig.DataCaptureRoutingKey
 );
 using var rabbitMqService = new RabbitMQService(rabbitMqSetupModel);
 var fileService = new FileService(dataPath);
@@ -34,8 +34,7 @@ while (true)
         {
             Console.WriteLine($"Processing {Path.GetFileName(file)} ...");
 
-            var fileContent = await File.ReadAllBytesAsync(file);
-            rabbitMqService.PublishMessage(fileContent);
+            await rabbitMqService.PublishFileAsync(file);
 
             fileService.SetProcessedFile(file);
         }
