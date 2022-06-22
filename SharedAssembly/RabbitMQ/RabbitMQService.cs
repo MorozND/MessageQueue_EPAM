@@ -17,7 +17,7 @@ namespace SharedAssembly.RabbitMQ
         private readonly string? _dataPath;
 
         //private const int MAX_MESSAGE_SIZE = 128_000_000;
-        private const int MAX_MESSAGE_SIZE = 5_000_000;
+        private const int MAX_MESSAGE_SIZE = 50_000_000;
 
         public RabbitMQService(RabbitMqSetupModel? setupModel, string? dataPath = null)
         {
@@ -45,40 +45,24 @@ namespace SharedAssembly.RabbitMQ
 
         public async Task PublishFileAsync(string file)
         {
-            var fileInfo = new FileInfo(file);
-
             var headers = new Dictionary<string, object>();
             var props = _channel.CreateBasicProperties();
             var sequence = 1;
 
             headers.Add(RabbitMqHeaders.FileName, Path.GetFileName(file));
-            headers.Add(RabbitMqHeaders.Extension, Path.GetExtension(file));
 
-            if (fileInfo.Length >= MAX_MESSAGE_SIZE)
+            using FileStream fs = File.Open(file, FileMode.Open, FileAccess.Read);
+
+            byte[] buffer = new byte[MAX_MESSAGE_SIZE];
+            while ((await fs.ReadAsync(buffer, 0, MAX_MESSAGE_SIZE)) != 0)
             {
-                using FileStream fs = File.Open(file, FileMode.Open, FileAccess.Read);
+                headers[RabbitMqHeaders.Sequence] = sequence;
 
-                byte[] buffer = new byte[MAX_MESSAGE_SIZE];
-                while ((await fs.ReadAsync(buffer, 0, MAX_MESSAGE_SIZE)) != 0)
-                {
-                    headers[RabbitMqHeaders.Sequence] = sequence;
-
-                    props.Headers = headers;
-                    _channel.BasicPublish(_exchangeName, _routingKey, null, buffer);
-
-                    sequence++;
-                }
+                props.Headers = headers;
+                _channel.BasicPublish(_exchangeName, _routingKey, props, buffer);
+                 
+                sequence++;
             }
-
-            var content = await File.ReadAllBytesAsync(file);
-
-            if (content is null || !content.Any())
-                throw new ArgumentException("Invalid content");
-
-            headers.Add(RabbitMqHeaders.Sequence, sequence);
-
-            props.Headers = headers;
-            _channel.BasicPublish(_exchangeName, _routingKey, props, content);
         }
 
         public void RegisterDataExchangeConsumer()
@@ -104,17 +88,12 @@ namespace SharedAssembly.RabbitMQ
 
             var messageMetadata = GetFileMessageMetadata(eventArgs);
 
-            if (messageMetadata.Sequence == 1)
-            {
-                File.WriteAllBytes(
-                    Path.Combine(_dataPath, messageMetadata.FileName),
-                    content
-                );
-            }
-            else
-            {
-                throw new NotImplementedException();
-            }
+            var fullFilePath = Path.Combine(_dataPath, messageMetadata.FileName);
+
+            using FileStream fs = File.Open(fullFilePath, FileMode.Append, FileAccess.Write);
+            fs.Write(content, 0, content.Length);
+
+            Console.WriteLine($"\nPROCESSED\tFile: {messageMetadata.FileName}; Sequence: {messageMetadata.Sequence};");
 
             _channel.BasicAck(eventArgs.DeliveryTag, false);
         }
@@ -123,9 +102,6 @@ namespace SharedAssembly.RabbitMQ
         {
             if (!e.BasicProperties.Headers.TryGetValue(RabbitMqHeaders.FileName, out var fileNameHeader) || fileNameHeader is null)
                 throw new InvalidDataException("Can't get FileName from message");
-
-            if (!e.BasicProperties.Headers.TryGetValue(RabbitMqHeaders.Extension, out var extensionHeader) || extensionHeader is null)
-                throw new InvalidDataException("Can't get Extension from message");
 
             if (!e.BasicProperties.Headers.TryGetValue(RabbitMqHeaders.Sequence, out var sequenceHeader) || sequenceHeader is null)
                 throw new InvalidDataException("Can't get Sequence from message");

@@ -36,6 +36,8 @@ while (true)
 
             await rabbitMqService.PublishFileAsync(file);
 
+            Console.WriteLine($"PROCESSED\t{Path.GetFileName(file)}");
+
             fileService.SetProcessedFile(file);
         }
     }
