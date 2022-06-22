@@ -17,6 +17,7 @@ namespace SharedAssembly.RabbitMQ
     public static class RabbitMqHeaders
     {
         public static readonly string FileName = "fileName";
+        public static readonly string Extension = "extension";
         public static readonly string Sequence = "sequence";
     }
 }

@@ -9,11 +9,7 @@ var rabbitMqSetupModel = new RabbitMqSetupModel(
     RabbitMqConfig.DefaultUri, RabbitMqConfig.DataCaptureExchange,
     RabbitMqConfig.DataCaptureQueue, RabbitMqConfig.DataCaptureRoutingKey
 );
-var resultFileInfo = new ResultFileInfo(
-    config["dataPath"],
-    config["fileExtension"]
-);
-using var rabbitMqService = new RabbitMQService(rabbitMqSetupModel, resultFileInfo);
+using var rabbitMqService = new RabbitMQService(rabbitMqSetupModel, config["dataPath"]);
 rabbitMqService.Setup();
 
 Console.WriteLine("RabbitMQ setup completed");

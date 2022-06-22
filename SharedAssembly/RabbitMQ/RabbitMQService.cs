@@ -1,6 +1,7 @@
 ﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using SharedAssembly.Models;
+using System.Text;
 
 namespace SharedAssembly.RabbitMQ
 {
@@ -13,12 +14,12 @@ namespace SharedAssembly.RabbitMQ
         private readonly string _queueName;
         private readonly string _routingKey;
 
-        private readonly ResultFileInfo? _fileInfo;
+        private readonly string? _dataPath;
 
         //private const int MAX_MESSAGE_SIZE = 128_000_000;
         private const int MAX_MESSAGE_SIZE = 5_000_000;
 
-        public RabbitMQService(RabbitMqSetupModel? setupModel, ResultFileInfo? fileInfo = null)
+        public RabbitMQService(RabbitMqSetupModel? setupModel, string? dataPath = null)
         {
             ArgumentNullException.ThrowIfNull(setupModel);
 
@@ -31,7 +32,8 @@ namespace SharedAssembly.RabbitMQ
             _exchangeName = setupModel.ExchangeName;
             _queueName = setupModel.QueueName;
             _routingKey = setupModel.RoutingKey;
-            _fileInfo = fileInfo;
+
+            _dataPath = dataPath;
         }
 
         public void Setup()
@@ -50,6 +52,7 @@ namespace SharedAssembly.RabbitMQ
             var sequence = 1;
 
             headers.Add(RabbitMqHeaders.FileName, Path.GetFileName(file));
+            headers.Add(RabbitMqHeaders.Extension, Path.GetExtension(file));
 
             if (fileInfo.Length >= MAX_MESSAGE_SIZE)
             {
@@ -80,11 +83,11 @@ namespace SharedAssembly.RabbitMQ
 
         public void RegisterDataExchangeConsumer()
         {
-            if (_fileInfo is null)
-                throw new ArgumentException("Can't register DataExchangeConsumer without a path to store files into.");
+            if (string.IsNullOrWhiteSpace(_dataPath))
+                throw new InvalidDataException("Can't register DataExcahngeConsumer without data path");
 
-            if (!Directory.Exists(_fileInfo.Path))
-                Directory.CreateDirectory(_fileInfo.Path);
+            if (!Directory.Exists(_dataPath))
+                Directory.CreateDirectory(_dataPath);
 
             var consumer = new EventingBasicConsumer(_channel);
             consumer.Received += DataExchangeConsumer_Received;
@@ -92,16 +95,45 @@ namespace SharedAssembly.RabbitMQ
             _channel.BasicConsume(_queueName, false, consumer);
         }
 
-        private void DataExchangeConsumer_Received(object? sender, BasicDeliverEventArgs e)
+        private void DataExchangeConsumer_Received(object? sender, BasicDeliverEventArgs eventArgs)
         {
-            if (_fileInfo is null)
-                throw new InvalidDataException("Information about how to store files should be provided at consumer level");
+            if (string.IsNullOrWhiteSpace(_dataPath))
+                throw new InvalidDataException("Data path is not specified");
 
-            var content = e.Body.ToArray();
+            var content = eventArgs.Body.ToArray();
 
-            File.WriteAllBytes(Path.Combine(_fileInfo.Path, $"{e.DeliveryTag}.{_fileInfo.Extension}"), content);
+            var messageMetadata = GetFileMessageMetadata(eventArgs);
 
-            _channel.BasicAck(e.DeliveryTag, false);
+            if (messageMetadata.Sequence == 1)
+            {
+                File.WriteAllBytes(
+                    Path.Combine(_dataPath, messageMetadata.FileName),
+                    content
+                );
+            }
+            else
+            {
+                throw new NotImplementedException();
+            }
+
+            _channel.BasicAck(eventArgs.DeliveryTag, false);
+        }
+
+        private FileMessageMetadata GetFileMessageMetadata(BasicDeliverEventArgs e)
+        {
+            if (!e.BasicProperties.Headers.TryGetValue(RabbitMqHeaders.FileName, out var fileNameHeader) || fileNameHeader is null)
+                throw new InvalidDataException("Can't get FileName from message");
+
+            if (!e.BasicProperties.Headers.TryGetValue(RabbitMqHeaders.Extension, out var extensionHeader) || extensionHeader is null)
+                throw new InvalidDataException("Can't get Extension from message");
+
+            if (!e.BasicProperties.Headers.TryGetValue(RabbitMqHeaders.Sequence, out var sequenceHeader) || sequenceHeader is null)
+                throw new InvalidDataException("Can't get Sequence from message");
+
+            return new FileMessageMetadata(
+                Encoding.UTF8.GetString((byte[])fileNameHeader),
+                sequenceHeader as int?
+            );
         }
 
         public void Dispose()
