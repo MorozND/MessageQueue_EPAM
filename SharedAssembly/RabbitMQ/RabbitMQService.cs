@@ -16,7 +16,6 @@ namespace SharedAssembly.RabbitMQ
 
         private readonly string? _dataPath;
 
-        //private const int MAX_MESSAGE_SIZE = 128_000_000;
         private const int MAX_MESSAGE_SIZE = 50_000_000;
 
         public RabbitMQService(RabbitMqSetupModel? setupModel, string? dataPath = null)
